@@ -10,6 +10,18 @@ import { useAnimateOnMount } from "@/lib/animations";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 
+interface FileIconProps {
+  extension: string;
+}
+
+const FileIcon = ({ extension }: FileIconProps) => {
+  return (
+    <div className="flex items-center justify-center w-8 h-8 rounded bg-primary/10 text-primary">
+      <span className="text-xs font-bold uppercase">{extension}</span>
+    </div>
+  );
+};
+
 interface ExportFormatOption {
   id: string;
   name: string;
@@ -100,18 +112,6 @@ const CodeSnippet = ({ language, code }: CodeSnippetProps) => {
       <pre className="bg-muted p-4 rounded-lg overflow-x-auto text-sm">
         <code>{code}</code>
       </pre>
-    </div>
-  );
-};
-
-interface FileIconProps {
-  extension: string;
-}
-
-const FileIcon = ({ extension }: FileIconProps) => {
-  return (
-    <div className="flex items-center justify-center w-8 h-8 rounded bg-primary/10 text-primary">
-      <span className="text-xs font-bold uppercase">{extension}</span>
     </div>
   );
 };
