@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import Datasets from "./pages/Datasets";
 import Training from "./pages/Training";
 import Models from "./pages/Models";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,6 +28,7 @@ const App = () => (
             <Route path="/datasets" element={<Datasets />} />
             <Route path="/training" element={<Training />} />
             <Route path="/models" element={<Models />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Layout>
