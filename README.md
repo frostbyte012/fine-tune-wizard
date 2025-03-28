@@ -1,8 +1,88 @@
-# Welcome to your Lovable project
+
+# Gemma Studio
+
+A comprehensive UI for fine-tuning Gemma models with dataset management, hyperparameter configuration, and model export capabilities.
 
 ## Project info
 
 **URL**: https://lovable.dev/projects/24e9a994-fea6-4dfc-a53d-d65a6adb294f
+
+## Project Structure
+
+```
+gemma-studio/
+├── public/                      # Static assets
+├── src/
+│   ├── components/              # React components
+│   │   ├── dashboard/           # Dashboard components
+│   │   │   └── WelcomeCard.tsx  # Welcome component on dashboard
+│   │   ├── dataset/             # Dataset related components
+│   │   │   ├── DatasetPreview.tsx  # Preview uploaded datasets
+│   │   │   └── DatasetUpload.tsx   # Upload datasets UI
+│   │   ├── layout/              # Layout components
+│   │   │   ├── Layout.tsx       # Main layout wrapper
+│   │   │   └── Navbar.tsx       # Navigation bar
+│   │   ├── models/              # Model components
+│   │   │   └── ModelExport.tsx  # Export trained models
+│   │   ├── training/            # Training components
+│   │   │   ├── HyperparameterConfig.tsx  # Configure training parameters
+│   │   │   └── TrainingProgress.tsx      # Training progress visualization
+│   │   └── ui/                  # shadcn/ui components
+│   │       └── ...              # Various UI components (buttons, cards, etc.)
+│   ├── hooks/                   # Custom React hooks
+│   │   ├── use-mobile.tsx       # Hook for responsive design
+│   │   └── use-toast.ts         # Toast notification hook
+│   ├── lib/                     # Utility functions
+│   │   ├── animations.ts        # Animation utilities
+│   │   └── utils.ts             # General utilities
+│   ├── pages/                   # Page components
+│   │   ├── Dashboard.tsx        # Dashboard page
+│   │   ├── Datasets.tsx         # Datasets management page
+│   │   ├── Index.tsx            # Landing page
+│   │   ├── Models.tsx           # Model export page
+│   │   ├── NotFound.tsx         # 404 page
+│   │   ├── Settings.tsx         # Settings page
+│   │   └── Training.tsx         # Training configuration and monitoring page
+│   ├── services/                # Backend service integrations
+│   │   ├── datasetService.ts    # Dataset management functionality
+│   │   ├── modelService.ts      # Model export functionality
+│   │   └── trainingService.ts   # Training functionality
+│   ├── App.css                  # App-wide styles
+│   ├── App.tsx                  # Main application component with routing
+│   ├── index.css                # Global styles
+│   ├── main.tsx                 # Application entry point
+│   └── vite-env.d.ts            # Vite environment types
+├── eslint.config.js             # ESLint configuration
+├── tailwind.config.ts           # Tailwind CSS configuration
+├── tsconfig.json                # TypeScript configuration
+└── vite.config.ts               # Vite configuration
+```
+
+## Features
+
+- **Dashboard**: Overview of the application and quick navigation
+- **Dataset Management**:
+  - Upload various data formats (CSV, JSONL, text files)
+  - Data validation and preview
+  - Basic preprocessing options
+- **Training Configuration**:
+  - Hyperparameter adjustment (learning rate, batch size, epochs)
+  - Model selection options
+  - Training job management
+- **Training Monitoring**:
+  - Real-time training progress visualization
+  - Loss curves and evaluation metrics
+  - Training logs
+- **Model Export**:
+  - Download fine-tuned models in various formats
+  - Model versioning and metadata
+
+## Backend Integration
+
+The application includes service layer integrations for:
+- Dataset processing and validation
+- Training job management and monitoring
+- Model export and versioning
 
 ## How can I edit this code?
 
@@ -50,15 +130,17 @@ npm run dev
 - Click on "New codespace" to launch a new Codespace environment.
 - Edit files directly within the Codespace and commit and push your changes once you're done.
 
-## What technologies are used for this project?
+## Technology Stack
 
-This project is built with .
+This project is built with:
 
 - Vite
 - TypeScript
 - React
 - shadcn-ui
 - Tailwind CSS
+- React Router
+- React Query
 
 ## How can I deploy this project?
 
