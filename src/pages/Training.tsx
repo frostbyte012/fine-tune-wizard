@@ -1,11 +1,24 @@
-
 import { HyperparameterConfig } from "@/components/training/HyperparameterConfig";
 import { TrainingProgress } from "@/components/training/TrainingProgress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
+import { getLatestTrainingJob } from "@/services/trainingService";
 
 const Training = () => {
-  const [activeTab, setActiveTab] = useState("config");
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState(location.state?.activeTab || "config");
+  
+  useEffect(() => {
+    if (location.state?.activeTab === "progress") {
+      setActiveTab("progress");
+    } else {
+      const latestJob = getLatestTrainingJob();
+      if (latestJob && (latestJob.status === "training" || latestJob.status === "paused")) {
+        setActiveTab("progress");
+      }
+    }
+  }, [location.state]);
   
   return (
     <div className="space-y-6">

@@ -12,8 +12,12 @@ import { Switch } from "@/components/ui/switch";
 import { HelpCircle, Zap } from "lucide-react";
 import { useAnimateOnMount } from "@/lib/animations";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
+import { startTraining } from "@/services/trainingService";
+import { getDatasets } from "@/services/datasetService";
 
 export function HyperparameterConfig() {
+  const navigate = useNavigate();
   const [params, setParams] = useState({
     // Basic params
     model: "gemma-7b",
@@ -31,7 +35,10 @@ export function HyperparameterConfig() {
     useHalfPrecision: true,
     useLoRA: true,
     saveBestModel: true,
-    evalSteps: 100
+    evalSteps: 100,
+    
+    // Selected dataset
+    datasetId: ""
   });
   
   const { styles } = useAnimateOnMount({
@@ -57,15 +64,45 @@ export function HyperparameterConfig() {
       useHalfPrecision: true,
       useLoRA: true,
       saveBestModel: true,
-      evalSteps: 100
+      evalSteps: 100,
+      datasetId: params.datasetId // Keep the selected dataset
     });
     toast.success("Parameters reset to defaults");
   };
   
   const handleStartTraining = () => {
-    toast.success("Training configuration saved");
-    // Redirect to training progress or start training
+    try {
+      // Get datasets and validate we have at least one successful dataset
+      const datasets = getDatasets();
+      const successfulDatasets = datasets.filter(d => d.status === 'success');
+      
+      if (successfulDatasets.length === 0) {
+        toast.error("No valid datasets", {
+          description: "Please upload and validate at least one dataset before training"
+        });
+        return;
+      }
+      
+      // Use the first successful dataset if none is selected
+      const datasetId = params.datasetId || successfulDatasets[0].id;
+      
+      // Start training with the service
+      const trainingJob = startTraining({
+        ...params,
+        datasetId
+      });
+      
+      // Switch to the progress tab
+      navigate("/training", { state: { activeTab: "progress", jobId: trainingJob.id } });
+    } catch (error) {
+      toast.error("Failed to start training", {
+        description: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
   };
+  
+  // Get available datasets for selection
+  const datasets = getDatasets().filter(d => d.status === 'success');
   
   return (
     <TooltipProvider>
@@ -87,10 +124,52 @@ export function HyperparameterConfig() {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="model">Model</Label>
+                    <Label htmlFor="dataset-select">Dataset</Label>
+                    <TooltipWrapper text="Select a dataset to use for training">
+                      <HelpCircle size={16} className="text-muted-foreground" />
+                    </TooltipWrapper>
                   </div>
-                  <Select value={params.model} onValueChange={(value) => handleBasicParamChange("model", value)}>
-                    <SelectTrigger id="model">
+                  <Select
+                    value={params.datasetId}
+                    onValueChange={(value) => handleBasicParamChange("datasetId", value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={
+                        datasets.length === 0 
+                          ? "No datasets available" 
+                          : "Select a dataset"
+                      } />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {datasets.length === 0 ? (
+                        <SelectItem value="none" disabled>
+                          No datasets available
+                        </SelectItem>
+                      ) : (
+                        datasets.map(dataset => (
+                          <SelectItem key={dataset.id} value={dataset.id}>
+                            {dataset.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {datasets.length === 0 && (
+                    <p className="text-xs text-amber-500 mt-1">
+                      Please upload and validate a dataset first
+                    </p>
+                  )}
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="model-select">Model</Label>
+                  </div>
+                  <Select
+                    value={params.model}
+                    onValueChange={(value) => handleBasicParamChange("model", value)}
+                  >
+                    <SelectTrigger>
                       <SelectValue placeholder="Select a model" />
                     </SelectTrigger>
                     <SelectContent>
@@ -103,14 +182,14 @@ export function HyperparameterConfig() {
                 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="epochs">Epochs</Label>
+                    <Label htmlFor="epochs-slider">Epochs</Label>
                     <TooltipWrapper text="Number of complete passes through the dataset">
                       <HelpCircle size={16} className="text-muted-foreground" />
                     </TooltipWrapper>
                   </div>
                   <div className="flex items-center gap-4">
                     <Slider 
-                      id="epochs"
+                      id="epochs-slider"
                       min={1} 
                       max={10} 
                       step={1}
@@ -124,14 +203,14 @@ export function HyperparameterConfig() {
                 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="learningRate">Learning Rate</Label>
+                    <Label htmlFor="lr-slider">Learning Rate</Label>
                     <TooltipWrapper text="Controls how quickly the model adapts to the problem">
                       <HelpCircle size={16} className="text-muted-foreground" />
                     </TooltipWrapper>
                   </div>
                   <div className="flex items-center gap-4">
                     <Slider 
-                      id="learningRate"
+                      id="lr-slider"
                       min={1e-6} 
                       max={1e-4} 
                       step={1e-6}
@@ -145,14 +224,13 @@ export function HyperparameterConfig() {
                 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="batchSize">Batch Size</Label>
+                    <Label htmlFor="bs-select">Batch Size</Label>
                     <TooltipWrapper text="Number of training examples used in one iteration">
                       <HelpCircle size={16} className="text-muted-foreground" />
                     </TooltipWrapper>
                   </div>
-                  <Select 
-                    id="batchSize"
-                    value={params.batchSize.toString()} 
+                  <Select
+                    value={params.batchSize.toString()}
                     onValueChange={(value) => handleBasicParamChange("batchSize", parseInt(value))}
                   >
                     <SelectTrigger>
@@ -192,14 +270,14 @@ export function HyperparameterConfig() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="maxLength">Max Length</Label>
+                    <Label htmlFor="max-len-slider">Max Length</Label>
                     <TooltipWrapper text="Maximum sequence length for inputs">
                       <HelpCircle size={16} className="text-muted-foreground" />
                     </TooltipWrapper>
                   </div>
                   <div className="flex items-center gap-4">
                     <Slider 
-                      id="maxLength"
+                      id="max-len-slider"
                       min={64} 
                       max={2048} 
                       step={64}
@@ -213,13 +291,13 @@ export function HyperparameterConfig() {
                 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="warmupSteps">Warmup Steps</Label>
+                    <Label htmlFor="warmup-steps">Warmup Steps</Label>
                     <TooltipWrapper text="Number of steps for learning rate warmup">
                       <HelpCircle size={16} className="text-muted-foreground" />
                     </TooltipWrapper>
                   </div>
                   <Input 
-                    id="warmupSteps"
+                    id="warmup-steps"
                     type="number" 
                     value={params.warmupSteps} 
                     onChange={(e) => handleBasicParamChange("warmupSteps", parseInt(e.target.value))}
@@ -229,14 +307,14 @@ export function HyperparameterConfig() {
                 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="weightDecay">Weight Decay</Label>
+                    <Label htmlFor="wd-slider">Weight Decay</Label>
                     <TooltipWrapper text="L2 regularization to prevent overfitting">
                       <HelpCircle size={16} className="text-muted-foreground" />
                     </TooltipWrapper>
                   </div>
                   <div className="flex items-center gap-4">
                     <Slider 
-                      id="weightDecay"
+                      id="wd-slider"
                       min={0} 
                       max={0.1} 
                       step={0.001}
@@ -250,14 +328,13 @@ export function HyperparameterConfig() {
                 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="gradientAccumulationSteps">Gradient Accumulation Steps</Label>
+                    <Label htmlFor="grad-accum">Gradient Accumulation Steps</Label>
                     <TooltipWrapper text="Simulate larger batch sizes with limited memory">
                       <HelpCircle size={16} className="text-muted-foreground" />
                     </TooltipWrapper>
                   </div>
-                  <Select 
-                    id="gradientAccumulationSteps"
-                    value={params.gradientAccumulationSteps.toString()} 
+                  <Select
+                    value={params.gradientAccumulationSteps.toString()}
                     onValueChange={(value) => handleBasicParamChange("gradientAccumulationSteps", parseInt(value))}
                   >
                     <SelectTrigger>
@@ -275,13 +352,13 @@ export function HyperparameterConfig() {
                 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="evalSteps">Evaluation Steps</Label>
+                    <Label htmlFor="eval-steps">Evaluation Steps</Label>
                     <TooltipWrapper text="How often to evaluate the model during training">
                       <HelpCircle size={16} className="text-muted-foreground" />
                     </TooltipWrapper>
                   </div>
                   <Input 
-                    id="evalSteps"
+                    id="eval-steps"
                     type="number" 
                     value={params.evalSteps} 
                     onChange={(e) => handleBasicParamChange("evalSteps", parseInt(e.target.value))}
@@ -330,7 +407,11 @@ export function HyperparameterConfig() {
           <Button variant="outline" onClick={handleResetToDefaults}>
             Reset to Defaults
           </Button>
-          <Button onClick={handleStartTraining} className="btn-transition">
+          <Button 
+            onClick={handleStartTraining} 
+            className="btn-transition"
+            disabled={datasets.length === 0}
+          >
             <Zap size={16} className="mr-2" />
             Start Training
           </Button>

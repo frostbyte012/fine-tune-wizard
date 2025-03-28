@@ -1,23 +1,16 @@
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Upload, FileText, FileCog, Check, AlertCircle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAnimateOnMount } from "@/lib/animations";
-import { toast } from "sonner";
-
-type FileStatus = "idle" | "uploading" | "validating" | "success" | "error";
-
-interface FileItem {
-  file: File;
-  status: FileStatus;
-  error?: string;
-}
+import { DatasetFile, processDatasetFile, removeDataset, clearDatasets } from "@/services/datasetService";
 
 export function DatasetUpload() {
-  const [files, setFiles] = useState<FileItem[]>([]);
+  const [files, setFiles] = useState<DatasetFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   
   const { styles } = useAnimateOnMount({
     type: 'fade',
@@ -49,7 +42,7 @@ export function DatasetUpload() {
     }
   };
   
-  const handleFiles = (newFiles: File[]) => {
+  const handleFiles = async (newFiles: File[]) => {
     // Filter valid file types (CSV, JSONL, TXT)
     const validTypes = ["text/csv", "application/json", "text/plain"];
     const validExtensions = [".csv", ".jsonl", ".json", ".txt"];
@@ -60,68 +53,35 @@ export function DatasetUpload() {
     });
     
     if (validFiles.length !== newFiles.length) {
-      toast.error("Some files were skipped due to unsupported formats.");
+      // Some files were skipped due to unsupported formats
     }
     
-    // Add new files to state
-    const newFileItems = validFiles.map(file => ({
-      file,
-      status: "idle" as FileStatus
-    }));
+    setIsProcessing(true);
     
-    setFiles(prev => [...prev, ...newFileItems]);
+    // Process each file using the service
+    for (const file of validFiles) {
+      const newDataset = await processDatasetFile(file);
+      setFiles(prev => {
+        // Replace if file with same name exists, otherwise add
+        const exists = prev.some(f => f.name === file.name);
+        return exists 
+          ? prev.map(f => f.name === file.name ? newDataset : f)
+          : [...prev, newDataset];
+      });
+    }
     
-    // Simulate processing of files
-    newFileItems.forEach((item, index) => {
-      // Start uploading
-      setTimeout(() => {
-        setFiles(prev => {
-          const updated = [...prev];
-          const fileIndex = updated.findIndex(f => f.file.name === item.file.name);
-          if (fileIndex !== -1) {
-            updated[fileIndex].status = "uploading";
-          }
-          return updated;
-        });
-        
-        // Start validating
-        setTimeout(() => {
-          setFiles(prev => {
-            const updated = [...prev];
-            const fileIndex = updated.findIndex(f => f.file.name === item.file.name);
-            if (fileIndex !== -1) {
-              updated[fileIndex].status = "validating";
-            }
-            return updated;
-          });
-          
-          // Complete process
-          setTimeout(() => {
-            setFiles(prev => {
-              const updated = [...prev];
-              const fileIndex = updated.findIndex(f => f.file.name === item.file.name);
-              if (fileIndex !== -1) {
-                // Randomly show success or error for demo purposes
-                const isSuccess = Math.random() > 0.3;
-                updated[fileIndex].status = isSuccess ? "success" : "error";
-                if (!isSuccess) {
-                  updated[fileIndex].error = "File format validation failed";
-                  toast.error(`Validation failed for ${item.file.name}`);
-                } else {
-                  toast.success(`Successfully validated ${item.file.name}`);
-                }
-              }
-              return updated;
-            });
-          }, 1500);
-        }, 1000);
-      }, index * 500);
-    });
+    setIsProcessing(false);
   };
   
-  const removeFile = (fileName: string) => {
-    setFiles(prev => prev.filter(item => item.file.name !== fileName));
-  };
+  const removeFile = useCallback((id: string) => {
+    removeDataset(id);
+    setFiles(prev => prev.filter(item => item.id !== id));
+  }, []);
+  
+  const clearAll = useCallback(() => {
+    clearDatasets();
+    setFiles([]);
+  }, []);
   
   const getFileIcon = (fileName: string) => {
     const extension = fileName.substring(fileName.lastIndexOf(".")).toLowerCase();
@@ -135,7 +95,7 @@ export function DatasetUpload() {
     }
   };
   
-  const getStatusIcon = (status: FileStatus) => {
+  const getStatusIcon = (status: string) => {
     switch (status) {
       case "uploading":
         return <div className="h-5 w-5 rounded-full border-2 border-primary border-t-transparent animate-spin" />;
@@ -179,7 +139,7 @@ export function DatasetUpload() {
               Supported formats: CSV, JSONL, and TXT files. Files will be automatically validated for format compatibility.
             </p>
             <label className="mt-4">
-              <Button className="btn-transition" variant="outline">
+              <Button className="btn-transition" variant="outline" disabled={isProcessing}>
                 Select Files
                 <input
                   type="file"
@@ -187,6 +147,7 @@ export function DatasetUpload() {
                   accept=".csv,.jsonl,.json,.txt,text/csv,application/json,text/plain"
                   className="hidden"
                   onChange={handleFileChange}
+                  disabled={isProcessing}
                 />
               </Button>
             </label>
@@ -196,12 +157,12 @@ export function DatasetUpload() {
         {files.length > 0 && (
           <div className="border rounded-lg divide-y">
             {files.map((item) => (
-              <div key={item.file.name} className="flex items-center gap-3 p-3">
-                {getFileIcon(item.file.name)}
+              <div key={item.id} className="flex items-center gap-3 p-3">
+                {getFileIcon(item.name)}
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{item.file.name}</p>
+                  <p className="font-medium truncate">{item.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {(item.file.size / 1024).toFixed(2)} KB • 
+                    {(item.size / 1024).toFixed(2)} KB • 
                     {item.status === "error" ? (
                       <span className="text-destructive ml-1">{item.error}</span>
                     ) : (
@@ -214,7 +175,7 @@ export function DatasetUpload() {
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    onClick={() => removeFile(item.file.name)}
+                    onClick={() => removeFile(item.id)}
                     className="h-7 w-7"
                   >
                     <X size={16} />
@@ -226,9 +187,12 @@ export function DatasetUpload() {
         )}
       </CardContent>
       <CardFooter className="flex justify-between">
-        <Button variant="ghost">Clear All</Button>
-        <Button disabled={files.length === 0 || !files.some(f => f.status === "success")}>
-          Continue
+        <Button variant="ghost" onClick={clearAll} disabled={files.length === 0}>Clear All</Button>
+        <Button 
+          disabled={files.length === 0 || !files.some(f => f.status === "success")}
+          onClick={() => window.location.href = "/training"}
+        >
+          Continue to Training
         </Button>
       </CardFooter>
     </Card>
